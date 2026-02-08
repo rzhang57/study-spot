@@ -1,26 +1,49 @@
-import { app, ipcMain, BrowserWindow } from "electron";
+import { app, ipcMain, BrowserWindow, screen } from "electron";
 import { spawn } from "child_process";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
 let win = null;
 let flaskProcess = null;
+const PILL_WIDTH = 200;
+const PILL_HEIGHT = 48;
+function findPythonVersion(venvLib) {
+  try {
+    const dirs = fs.readdirSync(venvLib).filter((d) => d.startsWith("python"));
+    return dirs[0] || "python3.12";
+  } catch {
+    return "python3.12";
+  }
+}
 function startFlask() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL;
   let serverDir;
   let pythonPath;
+  let spawnEnv;
   if (isDev) {
     serverDir = path.join(__dirname$1, "..", "..", "server");
     pythonPath = path.join(serverDir, "venv", "bin", "python");
+    spawnEnv = { ...process.env, FLASK_ENV: "development" };
   } else {
     serverDir = path.join(process.resourcesPath, "server");
-    pythonPath = path.join(serverDir, "venv", "bin", "python");
+    const venvDir = path.join(serverDir, "venv");
+    const pyVersion = findPythonVersion(path.join(venvDir, "lib"));
+    const sitePackages = path.join(venvDir, "lib", pyVersion, "site-packages");
+    pythonPath = path.join(venvDir, "bin", "python");
+    spawnEnv = {
+      ...process.env,
+      FLASK_ENV: "production",
+      PYTHONPATH: sitePackages,
+      VIRTUAL_ENV: venvDir,
+      PATH: `/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${process.env.PATH ? ":" + process.env.PATH : ""}`
+    };
   }
   console.log(`[flask] isDev=${isDev} serverDir=${serverDir}`);
   console.log(`[flask] pythonPath=${pythonPath}`);
   flaskProcess = spawn(pythonPath, ["-m", "flask", "--app", "app", "run"], {
     cwd: serverDir,
-    env: { ...process.env, FLASK_ENV: "development" }
+    env: spawnEnv
   });
   flaskProcess.stdout?.on("data", (data) => {
     console.log(`[flask] ${data.toString().trim()}`);
@@ -32,17 +55,27 @@ function startFlask() {
     console.error("Failed to start Flask:", err);
   });
 }
+function getPillPosition() {
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  return {
+    x: Math.round((width - PILL_WIDTH) / 2),
+    y: height - PILL_HEIGHT - 24
+  };
+}
 function createWindow() {
+  const pos = getPillPosition();
   win = new BrowserWindow({
-    width: 380,
-    height: 520,
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    x: pos.x,
+    y: pos.y,
     frame: false,
-    transparent: false,
-    resizable: true,
+    transparent: true,
+    resizable: false,
     alwaysOnTop: true,
     skipTaskbar: false,
     hasShadow: true,
-    backgroundColor: "#1e1e1e",
     webPreferences: {
       preload: path.join(__dirname$1, "preload.mjs"),
       contextIsolation: true,
@@ -91,4 +124,19 @@ ipcMain.handle("toggle-always-on-top", () => {
     win.setAlwaysOnTop(next);
   }
   return next;
+});
+ipcMain.handle("resize-window", (_event, w, h) => {
+  if (!win) return;
+  if (w === PILL_WIDTH && h === PILL_HEIGHT) {
+    const pos = getPillPosition();
+    win.setBounds({ x: pos.x, y: pos.y, width: w, height: h }, false);
+    win.setResizable(false);
+  } else {
+    const display = screen.getPrimaryDisplay();
+    const area = display.workAreaSize;
+    const x = Math.round((area.width - w) / 2);
+    const y = Math.round((area.height - h) / 2);
+    win.setResizable(true);
+    win.setBounds({ x, y, width: w, height: h }, false);
+  }
 });
