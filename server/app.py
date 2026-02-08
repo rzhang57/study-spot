@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+import json
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from dotenv import load_dotenv
 from services.buffer_service import BufferService
@@ -27,18 +28,27 @@ def get_status():
     return jsonify(buffer_service.get_status())
 
 
+def sse_stream(generator):
+    def generate():
+        for chunk in generator:
+            yield f"data: {json.dumps({'text': chunk})}\n\n"
+        yield "data: [DONE]\n\n"
+    return Response(generate(), mimetype="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
+
+
 @app.route('/assist', methods=['POST'])
 def assist_request():
     snapshots = buffer_service.flush_buffer(clear=True)
-    response_text = chat_service.init_chat(snapshots)
-    return jsonify({"response": response_text})
+    return sse_stream(chat_service.init_chat_stream(snapshots))
 
 
 @app.route('/assist/chat', methods=['POST'])
 def chat():
     message = request.json.get("message")
-    response_text = chat_service.send_message(message)
-    return jsonify({"response": response_text})
+    return sse_stream(chat_service.send_message_stream(message))
 
 
 @app.route('/')

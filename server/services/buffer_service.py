@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import mss
 from PIL import Image
 
-CAPTURE_INTERVAL = 1
+CAPTURE_INTERVAL = 0.5
 MAX_BUFFER_SIZE = 10
 RESIZE_WIDTH = 1280
 JPEG_QUALITY = 60
@@ -21,6 +21,7 @@ class BufferService:
         self._thread = None
 
     def start(self):
+        self._buffer.clear()
         if self._running:
             return
         self._running = True
@@ -72,6 +73,9 @@ class BufferService:
             snapshots = list(self._buffer)
             if clear:
                 self._buffer.clear()
+        print(f"[flush_buffer] returning {len(snapshots)} snapshots")
+        for i, s in enumerate(snapshots):
+            print(f"  [{i}] ts={s['timestamp']} size={len(s['image_bytes'])} bytes")
         return snapshots
 
     def get_status(self):

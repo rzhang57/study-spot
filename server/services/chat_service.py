@@ -5,12 +5,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MODEL = "gemini-2.5-flash"
+# MODEL = "gemini-2.5-flash"
+MODEL = "gemini-2.5-flash-lite"
 SYSTEM_PROMPT = """You are an ADHD productivity assistant. You will receive screenshots of the user's recent screen activity.
 
 Response format (strict):
-1. One short sentence acknowledging the user's effort and reassuring them you're here to help.
-2. One to two sentences suggesting a specific, concrete next step to get them back on track.
+1. One concise sentence acknowledging the user's effort and reassuring them you're here to help.
+2. One concise sentence suggesting a very specific, concrete next step to get them back on track.
+3. Ask a concise, supportive, thought provoking question.
 
 Never exceed 3 sentences total. Never use bullet points, headers, or lists. Write in a warm but direct tone."""
 
@@ -20,28 +22,34 @@ class ChatService:
         self._client = genai.Client(api_key=os.getenv("CHAT_API_KEY"))
         self._history = []
 
-    def init_chat(self, snapshots):
+    def init_chat_stream(self, snapshots):
         self._history = []
-        parts = [
-            types.Part.from_bytes(data=snap["image_bytes"], mime_type=snap["mime_type"])
-            for snap in snapshots
-        ]
-        prompt = "The user just said they're stuck. Analyze these screenshots to understand what they were doing, then respond following your format."
-        self._history.append(types.Content(role="user", parts=[types.Part.from_text(text=prompt)] + parts))
-        response = self._client.models.generate_content(
-            model=MODEL,
-            contents=self._history,
-            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
-        )
-        self._history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
-        return response.text
+        labeled_parts = []
+        total = len(snapshots)
+        for i, snap in enumerate(snapshots):
+            label = f"[Screenshot {i + 1}/{total}]" if i < total - 1 else f"[Screenshot {i + 1}/{total} — MOST RECENT]"
+            labeled_parts.append(types.Part.from_text(text=label))
+            labeled_parts.append(types.Part.from_bytes(data=snap["image_bytes"], mime_type=snap["mime_type"]))
+        prompt = "The user just said they're stuck. These screenshots are in chronological order. Focus primarily on the most recent screenshot to understand where they are now, and use earlier screenshots for context. Respond following your format."
+        self._history.append(types.Content(role="user", parts=[types.Part.from_text(text=prompt)] + labeled_parts))
+        full_text = yield from self._stream_response()
+        return full_text
 
-    def send_message(self, message):
+    def send_message_stream(self, message):
         self._history.append(types.Content(role="user", parts=[types.Part.from_text(text=message)]))
-        response = self._client.models.generate_content(
+        full_text = yield from self._stream_response()
+        return full_text
+
+    def _stream_response(self):
+        response_stream = self._client.models.generate_content_stream(
             model=MODEL,
             contents=self._history,
             config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
         )
-        self._history.append(types.Content(role="model", parts=[types.Part.from_text(text=response.text)]))
-        return response.text
+        full_text = ""
+        for chunk in response_stream:
+            if chunk.text:
+                full_text += chunk.text
+                yield chunk.text
+        self._history.append(types.Content(role="model", parts=[types.Part.from_text(text=full_text)]))
+        return full_text
