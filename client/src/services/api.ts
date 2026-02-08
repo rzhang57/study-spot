@@ -56,6 +56,7 @@ export async function getBufferStatus(): Promise<{
   buffer_count: number
   max_size: number
   capture_interval: number
+  disengaged: boolean
 }> {
   const res = await fetch(`${API_BASE}/buffer/status`)
   return res.json()

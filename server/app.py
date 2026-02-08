@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from services.buffer_service import BufferService
 from services.chat_service import ChatService
+from services.keyboard_service import KeyboardService
 
 load_dotenv()
 app = Flask(__name__)
@@ -12,6 +13,7 @@ CORS(app)
 
 buffer_service = BufferService()
 chat_service = ChatService()
+keyboard_service = KeyboardService()
 
 
 @app.route('/key', methods=['GET'])
@@ -46,17 +48,21 @@ def set_api_key():
 
 @app.route('/buffer/record', methods=['POST'])
 def start_context_buffer():
+    keyboard_service.start()
     return jsonify(buffer_service.start())
 
 
 @app.route('/buffer/kill', methods=['POST'])
 def kill_buffer():
+    keyboard_service.stop()
     return jsonify(buffer_service.stop())
 
 
 @app.route('/buffer/status', methods=['GET'])
 def get_status():
-    return jsonify(buffer_service.get_status())
+    status = buffer_service.get_status()
+    status["disengaged"] = keyboard_service.is_disengaged
+    return jsonify(status)
 
 
 def sse_stream(generator):

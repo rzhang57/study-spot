@@ -21,8 +21,6 @@ const PILL = { w: 200, h: 48 }
 const SETTINGS = { w: 300, h: 250 }
 const CHAT = { w: 380, h: 520 }
 
-const THRESHOLD_LIMIT = 5
-
 function App() {
   const [view, setView] = useState<AppView>('pill')
   const [messages, setMessages] = useState<Message[]>([])
@@ -32,7 +30,6 @@ function App() {
   const [recording, setRecording] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [showKey, setShowKey] = useState(false)
-  const [threshold, setThreshold] = useState(0)
   const [promptFading, setPromptFading] = useState(false)
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -58,24 +55,13 @@ function App() {
       try {
         const status = await getBufferStatus()
         setRecording(status.running)
-        if (status.running) {
-          setThreshold((v) => v + 1)
+        if (status.disengaged) {
+          handleBlocked()
         }
       } catch { /* server unavailable */ }
     }, 1000)
     return () => clearInterval(interval)
   }, [view, recording])
-
-  useEffect(() => {
-    // TODO: threshold will become a boolean state instead, play ping sound
-    if (threshold >= THRESHOLD_LIMIT && view === 'pill') {
-      setThreshold(0)
-      // setPromptFading(false)
-      // setView('prompt')
-      // animateResize(PROMPT, 400)
-      handleBlocked()
-    }
-  }, [threshold, view])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
@@ -148,7 +134,6 @@ function App() {
       if (recording) {
         await stopBuffer()
         setRecording(false)
-        setThreshold(0)
       } else {
         await startBuffer()
         setRecording(true)
