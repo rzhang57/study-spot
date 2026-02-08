@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import * from constants
 
 class State:
     def __init__(self, profile_path="user_profile.json"):
@@ -15,44 +16,6 @@ class State:
                 profile = json.load(f)
         else:
             profile = {}
-
-        # -----------------------------
-        # Defaults
-        # -----------------------------
-        default_weights = {
-            "gaze": 0.35,
-            "head": 0.25,
-            "blink": 0.20,
-            "expression": 0.20,
-        }
-
-        default_thresholds = {
-            "max_offscreen_time": 3.0,
-            "blink_rate_threshold": 0.60,
-            "head_movement_tolerance": 0.30,
-            "expression_drop_threshold": 0.20,
-        }
-
-        default_false_alarm_history = {
-            "gaze": 0,
-            "head": 0,
-            "blink": 0,
-            "expression": 0,
-        }
-
-        default_long_term_variance = {
-            "gaze": None,
-            "head": None,
-            "blink": None,
-            "expression": None,
-        }
-
-        default_good_behavior = {
-            "gaze": 0,
-            "head": 0,
-            "blink": 0,
-            "expression": 0,
-        }
 
         # -----------------------------
         # Initialize WEIGHTS

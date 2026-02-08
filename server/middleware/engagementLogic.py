@@ -213,12 +213,12 @@ def tighten_threshold(state, proxy):
     key = THRESHOLD_KEYS[proxy]
     state.thresholds[key] = scale_threshold(state.thresholds[key], loosen=False)
     
-    
+
 def adjust_weight(state, proxy):
     old_weight = state.weights[proxy]
 
     # Compute new weight for the offending metric
-    new_weight = max(old_weight - WEIGHT_DECREMENT, MIN_WEIGHT)
+    new_weight = max(old_weight * WEIGHT_DECREMENT_FACTOR, MIN_WEIGHT)
     delta = old_weight - new_weight  # amount of weight we freed
 
     state.weights[proxy] = new_weight
