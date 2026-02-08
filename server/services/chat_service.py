@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# MODEL = "gemini-2.5-flash"
 MODEL = "gemini-2.5-flash-lite"
 SYSTEM_PROMPT = """You are an ADHD productivity assistant. You will receive screenshots of the user's recent screen activity.
 
