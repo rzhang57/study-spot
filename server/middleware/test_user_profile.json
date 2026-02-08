@@ -1,0 +1,21 @@
+{
+  "thresholds": {
+    "pitch": 0.9,
+    "yaw": 0.85,
+    "visual": 0.75
+  },
+  "weights": {
+    "pitch": 0.35,
+    "yaw": 0.25,
+    "visual": 0.2
+  },
+  "false_alarm_history": {
+    "pitch": 0,
+    "yaw": 0,
+    "visual": 0
+  },
+  "good_behavior_counter": 0,
+  "long_term_variance": {},
+  "last_variance_update_time": 1770577346.9516008,
+  "last_line_processed": 2
+}

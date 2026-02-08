@@ -1,0 +1,3 @@
+{"timestamp": 1, "metrics": {"pitch_engagement": {"mean": 0.9}, "yaw_engagement": {"mean": 0.85}, "visual_stability": {"mean": 0.75}}, "flags": {"phone_checking_mode": false}}
+{"timestamp": 2, "metrics": {"pitch_engagement": {"mean": 0.92}, "yaw_engagement": {"mean": 0.87}, "visual_stability": {"mean": 0.77}}, "flags": {"phone_checking_mode": false}}
+{"timestamp": 3, "metrics": {"pitch_engagement": {"mean": 0.91}, "yaw_engagement": {"mean": 0.86}, "visual_stability": {"mean": 0.76}}, "flags": {"phone_checking_mode": false}}

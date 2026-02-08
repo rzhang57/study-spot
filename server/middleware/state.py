@@ -1,7 +1,7 @@
 import json
 import os
 import time
-import * from constants
+from constants import *
 
 class State:
     def __init__(self, profile_path="user_profile.json"):
@@ -9,8 +9,9 @@ class State:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.profile_path = os.path.join(base_dir, profile_path)
 
-
-        # Load JSON if it exists
+        # -----------------------------
+        # Load persistent profile
+        # -----------------------------
         if os.path.exists(self.profile_path):
             with open(self.profile_path, "r") as f:
                 profile = json.load(f)
@@ -55,28 +56,46 @@ class State:
         )
 
         # -----------------------------
-        # Timestamp for long-term variance updates
+        # Timestamp for variance updates
         # -----------------------------
         self.last_variance_update_time = profile.get(
             "last_variance_update_time", time.time()
         )
 
-        # -----------------------------
-        # Session-only rolling stats
-        # -----------------------------
-        # TODO adjust the metrics here
-        self.session_stats = {
-            "gaze": {"mean": None, "std": None, "n": 0, "M2": 0},
-            "head": {"mean": None, "std": None, "n": 0, "M2": 0},
-            "blink": {"mean": None, "std": None, "n": 0, "M2": 0},
-            "expression": {"mean": None, "std": None, "n": 0, "M2": 0},
+        # =====================================================
+        # SESSION-ONLY STATE (MATCHES ANALYZER JSON EXACTLY)
+        # =====================================================
+
+        self.metrics = {
+            "pitch_engagement": {
+                "mean": None,
+                "std_dev": None,
+                "n": 0,
+                "M2": 0.0,
+            },
+            "yaw_engagement": {
+                "mean": None,
+                "std_dev": None,
+                "n": 0,
+                "M2": 0.0,
+            },
+            "visual_stability": {
+                "mean": None,
+                "std_dev": None,
+                "n": 0,
+                "M2": 0.0,
+            },
         }
 
-        # adjust this based onn sunny TODO
+        self.flags = {
+            "phone_checking_mode": profile.get("phone_checking_mode", False),
+        }
+
+        # -----------------------------
+        # Stream bookkeeping
+        # -----------------------------
         self.last_line_processed = profile.get("last_line_processed", 0)
-        # adjust this based onn sunny TODO
-        self.keyboard_stroke = profile.get("keyboard_stroke", true)
-        self.cursor_movement = profile.get("cursor_movement", true)
+
         
 
 

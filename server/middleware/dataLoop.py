@@ -1,7 +1,9 @@
 import time
 from dataParsing import readData
 from engagementLogic import handleEngagement
+from state import State
 
+state = State()
 def data_loop(state):
     while True:
         readData(state)

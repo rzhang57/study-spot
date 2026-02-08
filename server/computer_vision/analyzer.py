@@ -414,11 +414,7 @@ class NeuroAnalyzer:
         is_keyboard_active = bool(recent_keys > 0)
         is_mouse_active = bool(recent_mouse > 0)
 
-        # --- 4. PHONE CHECKING MODE (The Quad-Lock) ---
-        # Logic: 
-        # 1. No Mouse AND No Keyboard
-        # 2. Pitch is consistently LOW (Looking down) -> Low Engagement Score
-        # 3. EAR is consistently LOW (Eyelids lowered) -> Low "Alertness" Score
+
         
         avg_pitch_score = stats_output["pitch_engagement"]["mean"]
         
@@ -428,22 +424,13 @@ class NeuroAnalyzer:
         ear_threshold = self.calib_mean['ear'] - (2 * self.calib_std['ear'])
         is_ear_low = current_ear_mean < ear_threshold
 
-        # Phone Trigger
-        # If Pitch Engagement is LOW (meaning looking away/down) AND No Input AND Low EAR
-        phone_checking_mode = (
-            not is_mouse_active and 
-            not is_keyboard_active and 
-            (avg_pitch_score < 0.3) and # Score drops when deviating
-            is_ear_low
-        )
 
         return {
             "timestamp": time.time(),
             "metrics": stats_output,
             "flags": {
                 "mouse_movement": is_mouse_active,
-                "keyboard_stroke": is_keyboard_active,
-                "phone_checking_mode": phone_checking_mode
+                "keyboard_stroke": is_keyboard_active
             }
         }
 

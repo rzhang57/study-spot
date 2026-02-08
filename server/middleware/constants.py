@@ -3,10 +3,9 @@
 # -----------------------------
 #TODO: change the default values and all the names
 default_weights = {
-    "gaze": 0.35,
-    "head": 0.25,
-    "blink": 0.20,
-    "expression": 0.20,
+    "pitch": 0.35,
+    "yaw": 0.25,
+    "visual": 0.20,
 }
 
 #TODO: ADJUST THESE FOR SURE! and we only need this if we aren't doing the calibration
@@ -89,3 +88,8 @@ HIGH_ENGAGEMENT_THRESHOLD = 0.75
 # Good behavior logic
 # -----------------------------
 GOOD_BEHAVIOR_LIMIT = 60  # e.g., 60 cycles of good behavior
+
+
+# --- Calibration constants ---
+MIN_CALIBRATION_SAMPLES = 1        # ~5–7 seconds of data at typical frame rates
+CALIBRATION_K = 1.0                  # 1 standard deviation below mean

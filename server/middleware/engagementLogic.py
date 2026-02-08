@@ -1,88 +1,80 @@
 import time
 from constants import *
 
-def handleEngagement(state, current_values):
+def handleEngagement(state):
     """
-    current_values: dict of per-metric engagement scores, e.g.
-        {"gaze": 0.72, "blink": 0.31, "head": 0.88, "expression": 0.55}
+    Computes engagement using window-level metrics from NeuroAnalyzer.
     """
 
     z_scores = {}
     threshold_z = {}
     weighted_contrib = {}
 
+    # Map logical proxies → analyzer metric keys
+    proxy_map = {
+        "pitch": "pitch_engagement",
+        "yaw": "yaw_engagement",
+        "visual": "visual_stability",
+    }
+
     # --- 1. Compute z-scores for each metric ---
-    for proxy, value in current_values.items():
-        stats = state.session_stats[proxy]
+    for proxy, metric_key in proxy_map.items():
+        stats = state.metrics.get(metric_key)
+        if not stats:
+            continue
+
         mean = stats["mean"]
-        std = stats["std"]
+        std = stats["std_dev"]
 
         if mean is None or std is None or std == 0:
             continue
 
-        z = (value - mean) / (std + 1e-6)
+        # Mean engagement score is the signal
+        z = (mean - 1.0) / (std + 1e-6)
         z_scores[proxy] = z
 
-        # Weighted contribution to final engagement score
-        weighted_contrib[proxy] = z * state.weights[proxy]
+        weighted_contrib[proxy] = z * state.weights.get(proxy, 0.0)
 
     if not z_scores:
         return  # Not enough data yet
 
+    # --- 2. Compute threshold z-scores ---
+    for proxy, metric_key in proxy_map.items():
+        threshold_value = state.thresholds.get(proxy)
+        stats = state.metrics.get(metric_key)
 
-    # --- 2. Compute threshold z-scores for each metric ---
-    for proxy, threshold_value in state.thresholds.items():
-        stats = state.session_stats[proxy]
+        if threshold_value is None or not stats:
+            continue
+
         mean = stats["mean"]
-        std = stats["std"]
+        std = stats["std_dev"]
 
         if mean is None or std is None or std == 0:
             continue
 
-        # Convert threshold from raw engagement-score space → z-score space
         threshold_z[proxy] = (threshold_value - mean) / (std + 1e-6)
-
 
     # --- 3. Compute final engagement score ---
     engagement_score = sum(weighted_contrib.values())
 
-    # Persist this value for long-term modeling
-    # TODO: if we want we can use this alongside timestamps to make the data we model and visualize.
-    # state.last_engagement_score = engagement_score
     state.save_profile()
 
-
     # --- 4. Compute global engagement threshold ---
-    # Weighted sum of per-metric threshold z-scores
-    global_threshold = 0
+    global_threshold = 0.0
     for proxy, tz in threshold_z.items():
-        global_threshold += tz * state.weights[proxy]
-
+        global_threshold += tz * state.weights.get(proxy, 0.0)
 
     # --- 5. Compare engagement score to threshold ---
     if engagement_score < global_threshold:
-        # Disengagement detected → handle false alarm logic
-        # TODO: have to do some sort of while loop here to halt until we can determine
-        # that it was a false alarm -> websocket -> client and server have constant
-        # communication and I can easily check whether a value changed such as
-        # false alarm = true and maybe currentPromptStatus = false (we set it to true 
-        # inside this if statement first. and then we move to the 
-        # while (currentPromptStatus == true) loop...)
-        handle_false_alarm(state, current_values)
+        handle_false_alarm(state, engagement_score)
 
+    # --- 6. Special case: yaw disengagement + keyboard + mouse = false ---
+    if state.flags["phone_checking_mode"]:
+        # User likely disengaged and inattentive
+        # DISTRACTED_PING_SOUND_RETURN
+        pass
 
-    # --- 6. Special blink-case: check for distraction ---
-    # TODO change to the headtilt thing once you figure out the names and stuff.
-    if "blink" in z_scores and "blink" in threshold_z:
-        if z_scores["blink"] < threshold_z["blink"]:
-            # Blink metric indicates disengagement
-            if not state.keyboard_stroke and not state.cursor_movement:
-                # No signs of active interaction → user is distracted
-                # DISTRACTED_PING_SOUND_RETURN
-                pass
-
-
-    # --- 7. Update long-term variance (slow adaptation) ---
+    # --- 7. Update long-term variance ---
     update_long_term_variance(state, engagement_score)
 
 
