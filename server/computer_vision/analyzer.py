@@ -1,4 +1,4 @@
-import pandas as pd
+'''import pandas as pd
 import numpy as np
 import time
 import json
@@ -254,6 +254,231 @@ class NeuroAnalyzer:
                             
                 except ValueError:
                     continue
+
+if __name__ == "__main__":
+    NeuroAnalyzer().run()'''
+
+#Version 2
+
+import pandas as pd
+import numpy as np
+import time
+import json
+import os
+import sys
+from collections import deque
+
+# --- CONFIGURATION ---
+DATA_DIR = os.path.join(os.getcwd(), "data")
+FEEDBACK_FILE = os.path.join(DATA_DIR, "threshold_feedback.json")
+
+# Default Thresholds for Z-Score deviations
+DEFAULT_CONFIG = {
+    "yaw_sigma_tolerance": 2.0,    # Horizontal tolerance
+    "pitch_sigma_tolerance": 3.0,  # Vertical tolerance
+    "blink_sigma_tolerance": 2.5   # Blink rate tolerance
+}
+
+class NeuroAnalyzer:
+    def __init__(self):
+        self.config = DEFAULT_CONFIG.copy()
+        self.calib_mean = {}
+        self.calib_std = {}
+        self.max_saccade_velocity = 0.0
+        
+        # Buffer: 10 seconds of data @ 30 FPS = 300 frames
+        # We focus on the immediate window for engagement scoring
+        self.window_size = 300
+        self.buffer = deque(maxlen=self.window_size)
+        
+        if not self.load_calibration():
+            print("CRITICAL: Calibration files not found. Run calibration.py first.")
+            sys.exit(1)
+
+    def load_calibration(self):
+        """Loads baseline μ and σ from calibration files."""
+        conv_path = os.path.join(DATA_DIR, "calibration_convergent.csv")
+        div_path = os.path.join(DATA_DIR, "calibration_divergent.csv")
+
+        if not os.path.exists(conv_path) or not os.path.exists(div_path): return False
+
+        try:
+            # 1. Convergent Baseline (Static Focus)
+            df_conv = pd.read_csv(conv_path)
+            for m in ['pitch', 'yaw', 'ear', 'gaze_x', 'gaze_y']:
+                self.calib_mean[m] = df_conv[m].mean()
+                self.calib_std[m] = df_conv[m].std()
+                if self.calib_std[m] == 0: self.calib_std[m] = 0.001
+
+            # 2. Divergent Baseline (Max Speed)
+            df_div = pd.read_csv(div_path)
+            gaze_diffs = np.diff(df_div[['gaze_x', 'gaze_y']].values, axis=0)
+            velocities = np.linalg.norm(gaze_diffs, axis=1)
+            self.max_saccade_velocity = np.percentile(velocities, 95)
+            
+            print(f"✅ Calibration Loaded. Baseline Pitch: {self.calib_mean['pitch']:.2f}")
+            return True
+        except Exception as e:
+            print(f"Error loading calibration: {e}")
+            return False
+
+    def check_feedback_updates(self):
+        """Reads external JSON to adjust thresholds dynamically."""
+        if os.path.exists(FEEDBACK_FILE):
+            try:
+                with open(FEEDBACK_FILE, 'r') as f:
+                    updates = json.load(f)
+                    for k, v in updates.items():
+                        if k in self.config: self.config[k] = float(v)
+            except: pass
+
+    def get_gaussian_score(self, value, metric, tolerance_sigma):
+        """
+        Converts a raw value into an 'Engagement Probability' (0.0 to 1.0).
+        Uses a Gaussian curve centered on the calibrated mean.
+        
+        Logic:
+        - If Value == Mean, Score = 1.0 (Perfect Engagement)
+        - If Value deviates by 'tolerance_sigma', Score drops significantly.
+        """
+        mu = self.calib_mean[metric]
+        sigma = self.calib_std[metric]
+        
+        # Calculate Z-distance
+        z = abs(value - mu) / sigma
+        
+        # Gaussian Decay: e^(-(z^2) / (2 * tolerance^2))
+        # This creates a bell curve where 0 deviation = 1.0 score
+        score = np.exp(-(z**2) / (2 * (tolerance_sigma**2)))
+        return float(score)
+
+    def calculate_window_stats(self, values):
+        """
+        Calculates the requested statistical format for a list of values.
+        Returns: {mean, std_dev, n, M2}
+        """
+        arr = np.array(values)
+        n = len(arr)
+        if n == 0: return {"mean": 0.0, "std_dev": 0.0, "n": 0, "M2": 0.0}
+        
+        mean = np.mean(arr)
+        # M2 is the sum of squared deviations from the mean
+        m2 = np.sum((arr - mean)**2)
+        std_dev = np.sqrt(m2 / n)
+        
+        return {
+            "mean": round(float(mean), 4),
+            "std_dev": round(float(std_dev), 4),
+            "n": int(n),
+            "M2": round(float(m2), 4)
+        }
+
+    def analyze_window(self):
+        if len(self.buffer) < 10: return None
+
+        # Convert to DataFrame
+        df = pd.DataFrame(list(self.buffer), columns=['time', 'ear', 'gaze_x', 'gaze_y', 'mouth', 'pitch', 'yaw', 'keys', 'mouse'])
+        
+        # --- 1. CALCULATE RAW SCORES (0.0 - 1.0) PER FRAME ---
+        # We apply the Gaussian scoring to every single frame in the buffer
+        # to get a vector of "Momentary Engagement"
+        
+        # Pitch Score (Vertical Engagement)
+        pitch_scores = df['pitch'].apply(lambda x: self.get_gaussian_score(x, 'pitch', self.config['pitch_sigma_tolerance']))
+        
+        # Yaw Score (Horizontal Engagement)
+        yaw_scores = df['yaw'].apply(lambda x: self.get_gaussian_score(x, 'yaw', self.config['yaw_sigma_tolerance']))
+        
+        # Gaze Score (Stability)
+        # For gaze, we assume the calibrated MEAN is the "center of work".
+        # This is an approximation. Alternatively, we could score based on velocity (Lower velocity = Higher engagement)
+        gaze_diffs = np.diff(df[['gaze_x', 'gaze_y']].values, axis=0)
+        gaze_velocity = np.linalg.norm(gaze_diffs, axis=1)
+        # Normalize velocity score: 1.0 if stationary, 0.0 if moving at max saccade speed
+        velocity_scores = np.clip(1.0 - (gaze_velocity / (self.max_saccade_velocity + 1e-6)), 0.0, 1.0)
+
+        # --- 2. CALCULATE STATISTICS ---
+        # We now pack these score arrays into the requested format
+        stats_output = {
+            "pitch_engagement": self.calculate_window_stats(pitch_scores),
+            "yaw_engagement": self.calculate_window_stats(yaw_scores),
+            "visual_stability": self.calculate_window_stats(velocity_scores),
+        }
+
+        # --- 3. BOOLEAN FLAGS ---
+        
+        # Activity Check (Last 1 second)
+        recent_keys = df['keys'].tail(30).sum()
+        recent_mouse = df['mouse'].tail(30).sum()
+        
+        is_keyboard_active = bool(recent_keys > 0)
+        is_mouse_active = bool(recent_mouse > 0)
+
+        # --- 4. PHONE CHECKING MODE (The Quad-Lock) ---
+        # Logic: 
+        # 1. No Mouse AND No Keyboard
+        # 2. Pitch is consistently LOW (Looking down) -> Low Engagement Score
+        # 3. EAR is consistently LOW (Eyelids lowered) -> Low "Alertness" Score
+        
+        avg_pitch_score = stats_output["pitch_engagement"]["mean"]
+        
+        # EAR Check: Is it significantly below baseline?
+        # We check if the current window mean is < (Baseline - 2*Sigma)
+        current_ear_mean = df['ear'].mean()
+        ear_threshold = self.calib_mean['ear'] - (2 * self.calib_std['ear'])
+        is_ear_low = current_ear_mean < ear_threshold
+
+        # Phone Trigger
+        # If Pitch Engagement is LOW (meaning looking away/down) AND No Input AND Low EAR
+        phone_checking_mode = (
+            not is_mouse_active and 
+            not is_keyboard_active and 
+            (avg_pitch_score < 0.3) and # Score drops when deviating
+            is_ear_low
+        )
+
+        return {
+            "timestamp": time.time(),
+            "metrics": stats_output,
+            "flags": {
+                "mouse_movement": is_mouse_active,
+                "keyboard_stroke": is_keyboard_active,
+                "phone_checking_mode": phone_checking_mode
+            }
+        }
+
+    def run(self):
+        print("🧠 NeuroAnalyzer Active. Outputting Statistical JSON...")
+        
+        # Find latest file
+        while True:
+            files = sorted([f for f in os.listdir(DATA_DIR) if f.startswith("telemetry_")])
+            if files:
+                current_file = os.path.join(DATA_DIR, files[-1])
+                break
+            time.sleep(1)
+
+        with open(current_file, 'r') as f:
+            f.readline() # Header
+            while True:
+                self.check_feedback_updates()
+                line = f.readline()
+                if not line:
+                    time.sleep(0.05)
+                    continue
+                
+                try:
+                    parts = line.strip().split(',')
+                    if len(parts) < 9: continue
+                    self.buffer.append([float(x) for x in parts])
+                    
+                    # Analyze every 10 frames (approx 3 times/sec)
+                    if len(self.buffer) % 10 == 0:
+                        result = self.analyze_window()
+                        if result:
+                            print(json.dumps(result))
+                            sys.stdout.flush()
+                except ValueError: continue
 
 if __name__ == "__main__":
     NeuroAnalyzer().run()
