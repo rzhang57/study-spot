@@ -3,7 +3,7 @@ import time
 
 from pynput import keyboard, mouse
 
-DISENGAGEMENT_THRESHOLD = 5
+DISENGAGEMENT_THRESHOLD = 10
 
 
 class KeyboardService:

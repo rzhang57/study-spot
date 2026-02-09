@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import mss
 from PIL import Image
 
-CAPTURE_INTERVAL = 3
+CAPTURE_INTERVAL = 1
 MAX_BUFFER_SIZE = 20
 RESIZE_WIDTH = 1280
 JPEG_QUALITY = 60

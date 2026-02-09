@@ -164,7 +164,7 @@ function App() {
         <div className="no-drag flex items-center gap-2 px-4 h-10 bg-[rgba(10,10,10,0.88)] rounded-full border border-white/10">
           <span
               className={`w-2 h-2 rounded-full shrink-0 ${recording ? 'bg-white animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-white/30'}`}/>
-          <span className="text-xs font-semibold text-white/60 tracking-wide whitespace-nowrap">focus</span>
+          <span className="text-xs font-semibold text-white/60 tracking-tight whitespace-nowrap">study spot</span>
         </div>
       </div>
     )
@@ -234,7 +234,7 @@ function App() {
             <button
               className="flex items-center justify-center gap-2 w-full py-2.5 border border-white/10 bg-white text-black text-[13px] font-semibold cursor-pointer hover:bg-white/90"
               onClick={handleBlocked}
-            >I'm stuck</button>
+            >Chat</button>
           </div>
         </div>
       </div>

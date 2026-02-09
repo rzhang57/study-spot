@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MODEL = "gemini-2.5-flash-lite"
+MODEL = "gemini-2.5-flash"
 SYSTEM_PROMPT = SYSTEM_PROMPT = """You are 'Spot', an intelligent executive function assistant for a user with ADHD. You have access to a visual history of the user's screen activity.
 
 **Your Core Function:**
@@ -81,6 +81,8 @@ class ChatService:
         Respond with **Phase 1 (The Intervention)**:
         1. "You were working on [Task]..."
         2. "Shall we [Micro-Step] to resume?"
+        
+        Be specific about the content on the screen when you suggest the micro-step. It should be actionable.
         """
         self._history.append(types.Content(role="user", parts=[types.Part.from_text(text=prompt)] + labeled_parts))
         full_text = yield from self._stream_response()

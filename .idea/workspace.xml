@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8e5c5da-b45b-47fa-89d8-13b07be85e05" name="Changes" comment="" />
+    <list default="true" id="b8e5c5da-b45b-47fa-89d8-13b07be85e05" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/services/buffer_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/server/services/buffer_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/services/chat_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/server/services/chat_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/services/keyboard_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/server/services/keyboard_service.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -244,7 +250,9 @@
       <workItem from="1770494480790" duration="176000" />
       <workItem from="1770494745214" duration="7767000" />
       <workItem from="1770514624941" duration="23445000" />
-      <workItem from="1770568063666" duration="422000" />
+      <workItem from="1770568063666" duration="3757000" />
+      <workItem from="1770573060558" duration="2093000" />
+      <workItem from="1770586319538" duration="2388000" />
     </task>
     <servers />
   </component>
